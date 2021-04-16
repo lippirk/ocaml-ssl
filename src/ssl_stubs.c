@@ -59,7 +59,15 @@
 #endif
 
 static int client_verify_callback(int, X509_STORE_CTX *);
+static char **certs = NULL;
 static DH *load_dh_param(const char *dhfile);
+
+void set_certs_size(unsigned int len) {
+  if(!certs) {
+    // free'd on program exit
+    certs = malloc(len * sizeof(char*));
+  }
+}
 
 /*******************
  * Data structures *
@@ -220,6 +228,7 @@ CAMLprim value ocaml_ssl_init(value use_threads)
 {
   int i;
 
+  free(certs);
   SSL_library_init();
   SSL_load_error_strings();
 
@@ -255,6 +264,25 @@ CAMLprim value ocaml_ssl_get_error_string(value unit)
   char buf[256];
   ERR_error_string_n(ERR_get_error(), buf, sizeof(buf));
   return caml_copy_string(buf);
+}
+
+CAMLprim value ocaml_ssl_set_certs(value l, value cert_list) {
+  int i, len;
+
+  CAMLparam2(l, cert_list);
+  CAMLlocal1(head);
+
+  len = Long_val(len);
+  set_certs_size(len);
+
+  for (i = 0; i < len; i++) {
+    head = Field(cert_list, 0);
+    char *head_str = (char *)String_val(head);
+    certs[i] = head_str;
+    head = Field(cert_list, 1);
+  }
+
+  CAMLreturn(Val_unit);
 }
 
 

@@ -192,6 +192,8 @@ external get_client_verify_callback_ptr : unit -> verify_callback = "ocaml_ssl_g
 
 let client_verify_callback = get_client_verify_callback_ptr ()
 
+external set_certs : int -> string list -> unit = "ocaml_ssl_set_certs"
+
 external set_client_verify_callback_verbose : bool -> unit = "ocaml_ssl_set_client_verify_callback_verbose"
 
 external set_verify : context -> verify_mode list -> verify_callback option -> unit = "ocaml_ssl_ctx_set_verify"

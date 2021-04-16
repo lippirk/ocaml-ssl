@@ -266,6 +266,8 @@ type verify_mode =
 (** A callback function for verification. Warning: this might change in the future. *)
 type verify_callback
 
+val set_certs : int -> string list -> unit
+
 (** Client's verification callback. Warning: this might change in the future. *)
 val client_verify_callback : verify_callback
 
