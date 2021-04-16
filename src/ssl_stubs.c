@@ -1731,8 +1731,10 @@ static int client_verify_callback(int ok, X509_STORE_CTX *ctx)
    */
   if (client_verify_callback_verbose)
   {
+    char *error_str = X509_verify_cert_error_string(error);
     fprintf(stderr, "Certificate[%d] subject=%s\n", depth, subject);
     fprintf(stderr, "Certificate[%d] issuer =%s\n", depth, issuer);
+    fprintf(stderr, "Certificate[%d] code   =%i, error=%s\n", depth, error, error_str);
     fflush(stderr);
   }
 
