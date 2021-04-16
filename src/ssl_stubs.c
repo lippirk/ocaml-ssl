@@ -1694,12 +1694,76 @@ CAMLprim value ocaml_ssl_shutdown(value socket)
 #define VERIFY_ROOT_OK VERIFY_OK
 #endif
 
+// static void X509_to_PEM(X509 *cert, char *pem) {
+//
+    // BIO *bio = NULL;
+//
+    // if (NULL == cert) {
+        // return;
+    // }
+//
+    // bio = BIO_new(BIO_s_mem());
+    // if (NULL == bio) {
+        // return;
+    // }
+//
+    // if (PEM_write_bio_X509(bio, cert) == 0) {
+        // BIO_free(bio);
+        // return;
+    // }
+//
+    // pem = (char *) malloc(bio->num_write + 1);
+    // if (NULL == pem) {
+        // BIO_free(bio);
+        // return;
+    // }
+//
+    // memset(pem, 0, bio->num_write + 1);
+    // BIO_read(bio, pem, bio->num_write);
+    // BIO_free(bio);
+    // return;
+// }
+//
+char *X509_to_PEM(X509 *cert) {
+
+    BIO *bio = NULL;
+    char *pem = NULL;
+
+    if (NULL == cert) {
+        return NULL;
+    }
+
+    bio = BIO_new(BIO_s_mem());
+    if (NULL == bio) {
+        return NULL;
+    }
+
+    if (0 == PEM_write_bio_X509(bio, cert)) {
+        BIO_free(bio);
+        return NULL;
+    }
+
+    long len = BIO_get_mem_data(bio, &pem) + 1;
+    // pem = (char *) malloc(bio->num_write + 1);
+    pem = (char *) malloc(len);
+    if (NULL == pem) {
+        BIO_free(bio);
+        return NULL;
+    }
+
+    memset(pem, 0, len);
+    BIO_read(bio, pem, len);
+    BIO_free(bio);
+    return pem;
+}
+
 
 static int client_verify_callback(int ok, X509_STORE_CTX *ctx)
 {
   char *subject, *issuer;
   int depth, error;
   char *xs;
+  char *cert_str;
 
   depth = X509_STORE_CTX_get_error_depth(ctx);
   error = X509_STORE_CTX_get_error(ctx);
@@ -1732,9 +1796,11 @@ static int client_verify_callback(int ok, X509_STORE_CTX *ctx)
   if (client_verify_callback_verbose)
   {
     char *error_str = X509_verify_cert_error_string(error);
+    cert_str = X509_to_PEM((X509*)xs);
     fprintf(stderr, "Certificate[%d] subject=%s\n", depth, subject);
     fprintf(stderr, "Certificate[%d] issuer =%s\n", depth, issuer);
     fprintf(stderr, "Certificate[%d] code   =%i, error=%s\n", depth, error, error_str);
+    fprintf(stderr, "Certificate[%d] cert_str =%s\n", depth, cert_str);
     fflush(stderr);
   }
 
@@ -1811,6 +1877,8 @@ return_time:
     free(subject);
   if (issuer)
     free(issuer);
+  if (cert_str)
+    free(cert_str);
 
   return ok;
 }
