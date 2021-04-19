@@ -1664,3 +1664,30 @@ err:
   if (bio != NULL) BIO_free(bio);
   return(ret);
 }
+
+static int exact_match_cb(int ok, X509_STORE_CTX *ctx) {
+  // See openssl/x509_vfy.c:lookup_cert_match
+  //
+  // Consider a certificate valid if and only if it exactly matches
+  // a trusted certificate in the store
+
+  ok = 0;
+
+  X509 *peer_cert = X509_STORE_CTX_get_current_cert(ctx);
+  X509_STORE_CTX_lookup_certs_fn lookup =  X509_STORE_CTX_get_lookup_certs(ctx);
+  STACK_OF(X509) *trusted_certs = lookup(ctx, X509_get_subject_name(peer_cert));
+  for(int i = 0; i < sk_X509_num(trusted_certs); i++) {
+    X509 *c = sk_X509_value(trusted_certs, i);
+    if (X509_cmp(c, peer_cert) == 0) {
+      ok = 1;
+      break;
+    }
+  }
+
+  return ok;
+}
+
+CAMLprim value ocaml_ssl_get_exact_match_cb(value unit)
+{
+  return (value)exact_match_cb;
+}

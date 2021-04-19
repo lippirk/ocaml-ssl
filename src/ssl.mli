@@ -473,3 +473,9 @@ val input_int : socket -> int
 
 (** Write an integer on an SSL socket. *)
 val output_int : socket -> int -> unit
+
+module Citrix : sig
+  val exact_match_cb : verify_callback
+  (** This callback can be used to check that a peer's certificate _exactly_ matches
+   *  a trusted certificate. The trusted certificates can be set using [load_verify_locations] *)
+end

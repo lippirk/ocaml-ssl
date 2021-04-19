@@ -331,3 +331,9 @@ let input_int ssl =
     i := (!i lsl 8) + int_of_char (Bytes.get tmp 2);
     i := (!i lsl 8) + int_of_char (Bytes.get tmp 3);
     !i
+
+module Citrix = struct
+  external get_exact_match_cb : unit -> verify_callback = "ocaml_ssl_get_exact_match_cb"
+
+  let exact_match_cb = get_exact_match_cb ()
+end
