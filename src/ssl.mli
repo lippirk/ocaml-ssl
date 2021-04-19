@@ -473,3 +473,14 @@ val input_int : socket -> int
 
 (** Write an integer on an SSL socket. *)
 val output_int : socket -> int -> unit
+
+module Citrix : sig
+  val set_trusted_certificates : context -> bundle_fname:string -> unit
+  (** [set_trusted_certificates ctx ~bundle_fname] sets the certificate bundle to be used in
+   *  [check_against_trusted_certificates_cb]. [bundle] is a path to a file, containing
+   *  newline separated certificates. *)
+
+  val check_against_trusted_certificates_cb : verify_callback
+  (** This callback can be used to check that a peer's certificate _exactly_ matches
+   *  one in a bundle.*)
+end

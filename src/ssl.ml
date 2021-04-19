@@ -331,3 +331,51 @@ let input_int ssl =
     i := (!i lsl 8) + int_of_char (Bytes.get tmp 2);
     i := (!i lsl 8) + int_of_char (Bytes.get tmp 3);
     !i
+
+module Citrix = struct
+  exception Invalid_bundle of string
+
+  let string_of_file fname : string =
+    let open Stdlib in
+    let ch = open_in fname  in
+    let cleanup () = try close_in ch with _ -> () in
+    try
+      let s = really_input_string ch (in_channel_length ch) in
+      cleanup () ;
+      s
+    with e ->
+      cleanup () ;
+      raise e
+
+  let cert_strs_of_bundle bundle_fname : string list =
+    let rec go (certs : string list) (acc : string list) = function
+      | [] -> assert (acc = []) ; certs
+      | l::ls when String.trim l = "" -> (go [@tailcall]) certs acc ls
+      | l::ls when l = "-----END CERTIFICATE-----" ->
+          assert (acc <> []) ;
+          let c = l::acc |> List.rev |> String.concat "\n" |> Printf.sprintf "%s\n" in
+          (go [@tailcall]) (c::certs) [] ls
+      | l::ls when l = "-----BEGIN CERTIFICATE-----" ->
+          assert (acc = []) ;
+         (go [@tailcall]) certs [l] ls
+      | l::ls -> (go [@tailcall]) certs (l::acc) ls
+    in
+    string_of_file bundle_fname |> String.split_on_char '\n' |> go [] []
+
+  external set_trusted_certs : context -> string -> unit = "ocaml_ssl_set_trusted_certs"
+
+  let set_trusted_certificates ctx ~bundle_fname : unit =
+    let certs =
+      try
+        cert_strs_of_bundle bundle_fname
+      with e ->
+        Printf.eprintf "ssl.ml: invalid bundle %s. exception: %s\n" bundle_fname (Printexc.to_string e) ;
+        raise (Invalid_bundle bundle_fname)
+    in
+    let cert_str = String.concat "" certs in
+    set_trusted_certs ctx cert_str
+
+  external get_trusted_certs_cb : unit -> verify_callback = "ocaml_ssl_get_trusted_certs_cb"
+
+  let check_against_trusted_certificates_cb = get_trusted_certs_cb ()
+end

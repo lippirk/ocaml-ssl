@@ -1664,3 +1664,85 @@ err:
   if (bio != NULL) BIO_free(bio);
   return(ret);
 }
+
+static SSL_CTX *client_ssl_ctx = NULL;
+
+char *X509_to_pem(X509 *cert) {
+    BIO *bio = NULL;
+    char *pem = NULL;
+
+    if (cert == NULL) {
+        return NULL;
+    }
+
+    bio = BIO_new(BIO_s_mem());
+    if (bio == NULL) {
+        return NULL;
+    }
+
+    if (PEM_write_bio_X509(bio, cert) == 0) {
+        BIO_free(bio);
+        return NULL;
+    }
+
+    long len = BIO_get_mem_data(bio, &pem) + 1;
+    pem = (char *) malloc(len);
+    if (pem == NULL) {
+        BIO_free(bio);
+        return NULL;
+    }
+
+    memset(pem, 0, len);
+    BIO_read(bio, pem, len);
+    BIO_free(bio);
+    return pem;
+}
+
+CAMLprim value ocaml_ssl_set_trusted_certs(value context, value cert_str) {
+  CAMLparam2(context, cert_str);
+  const char *c = String_val(cert_str);
+  SSL_CTX *ctx = Ctx_val(context);
+
+  caml_enter_blocking_section();
+
+  if (client_ssl_ctx == NULL) {
+    client_ssl_ctx = ctx;
+  } else if (client_ssl_ctx != ctx) {
+    fprintf(stderr, "set_trusted_cert: please use a single client context\n");
+    client_ssl_ctx = ctx;
+  }
+
+  free(SSL_CTX_get_app_data(client_ssl_ctx));
+  SSL_CTX_set_app_data(client_ssl_ctx, c);
+
+  caml_leave_blocking_section();
+
+  CAMLreturn(Val_unit);
+}
+
+static int trusted_certs_cb(int ok, X509_STORE_CTX *ctx) {
+  // ignore pre-verify ok
+  ok = 0;
+  X509 *x509 = X509_STORE_CTX_get_current_cert(ctx);
+  char *cert_str = X509_to_pem(x509);
+  char *trusted_cert_str = SSL_CTX_get_app_data(client_ssl_ctx);
+  if (cert_str == NULL) {
+    fprintf(stderr, "trusted_certs_cb: can't get cert from SSL ctx\n");
+  } else if (trusted_cert_str == NULL) {
+    fprintf(stderr, "trusted_certs_cb: trusted_certs not set!\n");
+  } else {
+    if (strstr(trusted_cert_str, cert_str) != NULL) {
+      // cert on the socket is a substring of the trusted certs, i.e.
+      // the peer's cert is exactly the same as one of the trusted certs
+      ok = 1;
+    }
+  }
+
+  free(cert_str);
+  return ok;
+}
+
+CAMLprim value ocaml_ssl_get_trusted_certs_cb(value unit)
+{
+  return (value)trusted_certs_cb;
+}
